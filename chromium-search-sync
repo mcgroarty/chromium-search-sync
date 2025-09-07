@@ -660,7 +660,8 @@ def check_browsers_not_running():
         
         for line in result.stdout.split('\n'):
             # Skip helper processes and other non-main processes
-            if 'Helper' in line or 'Renderer' in line or 'GPU' in line:
+            # 'chrome-extension:' is used by Keysmith app
+            if re.search(r'(Helper|Renderer|GPU|chrome_crashpad_handler|chrome-extension:)', line, re.IGNORECASE):
                 continue
                 
             # Skip this script itself

@@ -462,7 +462,7 @@ def show_search_shortcuts():
             continue
         
         profiles_found = True
-        
+
         for profile_dir in sorted(profile_dirs):
             profile_name = get_profile_name(profile_dir, profile_names_cache)
             shortcuts = get_search_shortcuts(profile_dir)
@@ -478,7 +478,7 @@ def show_search_shortcuts():
             # 3 columns: Name, Shortcut, URL
             # Set minimum widths and preferred proportions
             min_widths = [15, 8, 20]  # Minimum widths for Name, Shortcut, URL
-            max_widths = [40, 20, None]  # Maximum widths (None = no limit for URL)
+            max_widths = [40, 45, None]  # Maximum widths (None = no limit for URL)
             widths = calculate_table_widths(terminal_width, 3, min_widths, max_widths)
             
             # Print separator and header
@@ -575,11 +575,11 @@ def show_combined_search_shortcuts():
     
     # Calculate dynamic table widths for 4 columns: Name, Shortcut, URL, Source Profile
     min_widths = [15, 8, 20, 12]  # Minimum widths
-    max_widths = [35, 15, None, 25]  # Maximum widths (None = no limit for URL)
+    max_widths = [35, 45, None, 35]  # Maximum widths (None = no limit for URL)
     widths = calculate_table_widths(terminal_width, 4, min_widths, max_widths)
     
     # Print header
-    header_row = format_table_row(["Name", "Shortcut", "URL", "Source Profile"], widths)
+    header_row = format_table_row(["Name", "Shortcut", "URL", "Source Profiles"], widths)
     print(header_row)
     print_table_separator(widths)
     
@@ -1615,16 +1615,17 @@ def calculate_table_widths(terminal_width, columns, min_widths=None, max_widths=
         min_widths = [8] * columns  # Default minimum width
     if max_widths is None:
         max_widths = [None] * columns  # No maximum by default
-    
-    # Account for spaces between columns (1 space between each column)
-    available_width = terminal_width - (columns - 1)
-    
+
+    # Account for spaces between columns (1 space between each column) and leaving room
+    # for overlaying scrollbar
+    available_width = terminal_width - columns - 1
+
     # Start with minimum widths
     widths = min_widths.copy()
     remaining_width = available_width - sum(widths)
     
     # Distribute remaining width proportionally
-    if remaining_width > 0:
+    while remaining_width > 0:
         # Find columns that can expand
         expandable_columns = []
         for i, max_width in enumerate(max_widths):
@@ -1638,11 +1639,12 @@ def calculate_table_widths(terminal_width, columns, min_widths=None, max_widths=
             
             for i, col_idx in enumerate(expandable_columns):
                 extra = extra_per_column + (1 if i < remainder else 0)
+                tentative_new_size = widths[col_idx] + extra
                 if max_widths[col_idx] is not None:
-                    widths[col_idx] = min(widths[col_idx] + extra, max_widths[col_idx])
-                else:
-                    widths[col_idx] += extra
-    
+                    tentative_new_size= min(tentative_new_size, max_widths[col_idx])
+                remaining_width -= (tentative_new_size - widths[col_idx])
+                widths[col_idx] = tentative_new_size
+
     return widths
 
 
@@ -1653,7 +1655,7 @@ def format_table_row(values, widths):
         # Truncate if necessary, leaving room for ellipsis
         if len(str(value)) > width:
             if width > 3:
-                formatted_values.append(str(value)[:width-3] + "...")
+                formatted_values.append(str(value)[:width-1] + "…")
             else:
                 formatted_values.append(str(value)[:width])
         else:

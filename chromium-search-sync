@@ -116,43 +116,43 @@ from pathlib import Path
 def detect_os():
     """Detect the operating system and return appropriate browser profile paths."""
     system = platform.system().lower()
-    
+
     browser_paths = []
-    
+
     if system == "darwin":  # macOS
         os_name = "macOS"
         # Check for Brave
         brave_path = Path.home() / "Library" / "Application Support" / "BraveSoftware" / "Brave-Browser"
         if brave_path.exists():
             browser_paths.append(brave_path)
-        
+
         # Check for Chrome
         chrome_path = Path.home() / "Library" / "Application Support" / "Google" / "Chrome"
         if chrome_path.exists():
             browser_paths.append(chrome_path)
-            
+
     elif system == "linux":
         os_name = "Linux"
         # Check for Brave
         brave_path = Path.home() / ".config" / "BraveSoftware" / "Brave-Browser"
         if brave_path.exists():
             browser_paths.append(brave_path)
-        
+
         # Check for Chrome
         chrome_path = Path.home() / ".config" / "google-chrome"
         if chrome_path.exists():
             browser_paths.append(chrome_path)
-            
+
     elif system == "windows":
         # Check if running under Cygwin
         if "CYGWIN" in os.environ.get("TERM", "") or \
-           os.environ.get("OSTYPE", "").lower().startswith("cygwin"):
+                os.environ.get("OSTYPE", "").lower().startswith("cygwin"):
             os_name = "Windows (Cygwin)"
             # Check for Brave
             brave_path = Path.home() / "AppData" / "Local" / "BraveSoftware" / "Brave-Browser"
             if brave_path.exists():
                 browser_paths.append(brave_path)
-            
+
             # Check for Chrome
             chrome_path = Path.home() / "AppData" / "Local" / "Google" / "Chrome" / "User Data"
             if chrome_path.exists():
@@ -163,7 +163,7 @@ def detect_os():
             sys.exit(1)
     else:
         os_name = "Unknown"
-    
+
     return os_name, browser_paths
 
 
@@ -171,7 +171,7 @@ def is_browser_specific_url(url):
     """Check if a URL is browser-specific (brave:// or chrome://)."""
     if not url:
         return False
-    
+
     url_lower = url.lower()
     return url_lower.startswith('brave://') or url_lower.startswith('chrome://')
 
@@ -180,7 +180,7 @@ def get_profile_names_from_local_state(browser_path):
     """Get profile names from the Local State file."""
     local_state_file = browser_path / "Local State"
     profile_names = {}
-    
+
     if local_state_file.exists():
         try:
             with open(local_state_file, 'r', encoding='utf-8') as f:
@@ -190,18 +190,18 @@ def get_profile_names_from_local_state(browser_path):
                         profile_names[profile_id] = profile_info.get('name', profile_id)
         except (json.JSONDecodeError, IOError):
             pass
-    
+
     return profile_names
 
 
 def get_profile_name(profile_path, profile_names_cache):
     """Extract the profile name from the profile directory."""
     profile_dir_name = profile_path.name
-    
+
     # First try to get from Local State cache
     if profile_dir_name in profile_names_cache:
         return profile_names_cache[profile_dir_name]
-    
+
     # Fallback: try to get from individual profile Preferences
     prefs_file = profile_path / "Preferences"
     if prefs_file.exists():
@@ -214,7 +214,7 @@ def get_profile_name(profile_path, profile_names_cache):
                     return profile_name
         except (json.JSONDecodeError, IOError):
             pass
-    
+
     # Final fallback to directory name
     return profile_dir_name
 
@@ -223,22 +223,22 @@ def get_search_shortcuts(profile_path):
     """Get search engine shortcuts from a profile's Web Data SQLite database."""
     web_data_file = profile_path / "Web Data"
     shortcuts = []
-    
+
     if not web_data_file.exists():
         return shortcuts
-    
+
     try:
         conn = sqlite3.connect(str(web_data_file))
         cursor = conn.cursor()
-        
+
         # Query the keywords table for search engines with non-empty keywords
         cursor.execute("""
-            SELECT short_name, keyword, url 
-            FROM keywords 
+            SELECT short_name, keyword, url
+            FROM keywords
             WHERE keyword != '' AND keyword IS NOT NULL
             ORDER BY short_name
         """)
-        
+
         for row in cursor.fetchall():
             short_name, keyword, url = row
             if short_name and keyword and url:
@@ -247,12 +247,12 @@ def get_search_shortcuts(profile_path):
                     'keyword': keyword,
                     'url': url
                 })
-        
+
         conn.close()
-        
+
     except (sqlite3.Error, OSError):
         pass
-    
+
     return shortcuts
 
 
@@ -260,22 +260,22 @@ def get_search_shortcuts_with_metadata(profile_path, profile_name):
     """Get search engine shortcuts with metadata from a profile's Web Data SQLite database."""
     web_data_file = profile_path / "Web Data"
     shortcuts = []
-    
+
     if not web_data_file.exists():
         return shortcuts
-    
+
     try:
         conn = sqlite3.connect(str(web_data_file))
         cursor = conn.cursor()
-        
+
         # Query the keywords table for search engines with metadata
         cursor.execute("""
             SELECT short_name, keyword, url, last_modified, favicon_url, usage_count, prepopulate_id
-            FROM keywords 
+            FROM keywords
             WHERE keyword != '' AND keyword IS NOT NULL
             ORDER BY short_name
         """)
-        
+
         for row in cursor.fetchall():
             short_name, keyword, url, last_modified, favicon_url, usage_count, prepopulate_id = row
             if short_name and keyword and url:
@@ -290,12 +290,12 @@ def get_search_shortcuts_with_metadata(profile_path, profile_name):
                     'profile_name': profile_name,
                     'profile_path': str(profile_path)
                 })
-        
+
         conn.close()
-        
+
     except (sqlite3.Error, OSError):
         pass
-    
+
     return shortcuts
 
 
@@ -322,99 +322,99 @@ On this system, back up: ~/Library/Application Support/BraveSoftware/Brave-Brows
 Use at your own risk.
         """.strip()
     )
-    
+
     parser.add_argument(
         '-p', '--profiles',
         action='store_true',
         help='List all Brave and Chrome browser profiles with their names and directories'
     )
-    
+
     parser.add_argument(
         '-s', '--search-shortcuts',
         action='store_true',
         help='Show search engine shortcuts for each profile'
     )
-    
+
     parser.add_argument(
         '-c', '--combined',
         action='store_true',
         help='Show combined search engines from all profiles, displaying all versions when shortcuts differ'
     )
-    
+
     parser.add_argument(
         '-cs', '--combined-sync',
         action='store_true',
         help='Sync newest search engines to all profiles (case-insensitive keyword matching) - CAUTION: Modifies browser configuration'
     )
-    
+
     parser.add_argument(
         '-d', '--delete',
         type=str,
         metavar='SHORTCUT',
         help='Delete search engine with specified shortcut from all profiles - CAUTION: Modifies browser configuration'
     )
-    
+
     parser.add_argument(
         '--smoke-test',
         action='store_true',
         help='Run system validation checks to ensure the tool can operate safely'
     )
-    
+
     return parser.parse_args()
 
 
 def list_browser_profiles():
     """List all Brave and Chrome browser profiles."""
     os_name, browser_paths = detect_os()
-    
+
     print(f"Operating System: {os_name}")
     print("-" * min(50, get_terminal_width()))
-    
+
     if not browser_paths:
         print("Unsupported operating system")
         return
-    
+
     profiles_found = False
-    
+
     for browser_path in browser_paths:
         print(f"Checking browser data directory: {browser_path}")
-        
+
         if not browser_path.exists():
             print(f"  Directory not found: {browser_path}")
             continue
-        
+
         # Get profile names from Local State
         profile_names_cache = get_profile_names_from_local_state(browser_path)
-        
+
         # Look for profile directories
         profile_dirs = []
-        
+
         # Check for Default profile
         default_profile = browser_path / "Default"
         if default_profile.exists() and default_profile.is_dir():
             profile_dirs.append(default_profile)
-        
+
         # Check for numbered profiles (Profile 1, Profile 2, etc.)
         for item in browser_path.iterdir():
             if item.is_dir() and item.name.startswith("Profile "):
                 profile_dirs.append(item)
-        
+
         # Check for System Profile
         system_profile = browser_path / "System Profile"
         if system_profile.exists() and system_profile.is_dir():
             profile_dirs.append(system_profile)
-        
+
         if not profile_dirs:
             print("  No profiles found")
             continue
-        
+
         profiles_found = True
         print(f"  Found {len(profile_dirs)} profile(s):")
-        
+
         for profile_dir in sorted(profile_dirs):
             profile_name = get_profile_name(profile_dir, profile_names_cache)
             print(f"    - {profile_name} (Directory: {profile_dir.name})")
-    
+
     if not profiles_found:
         print("\nNo browser profiles found on this system.")
         print("Make sure Brave and/or Chrome browser is installed and has been run at least once.")
@@ -423,56 +423,56 @@ def list_browser_profiles():
 def show_search_shortcuts():
     """Show search engine shortcuts for all profiles."""
     os_name, browser_paths = detect_os()
-    
+
     print(f"Operating System: {os_name}")
     print("-" * min(80, get_terminal_width()))
-    
+
     if not browser_paths:
         print("Unsupported operating system")
         return
-    
+
     profiles_found = False
-    
+
     for browser_path in browser_paths:
         if not browser_path.exists():
             continue
-        
+
         # Get profile names from Local State
         profile_names_cache = get_profile_names_from_local_state(browser_path)
-        
+
         # Look for profile directories
         profile_dirs = []
-        
+
         # Check for Default profile
         default_profile = browser_path / "Default"
         if default_profile.exists() and default_profile.is_dir():
             profile_dirs.append(default_profile)
-        
+
         # Check for numbered profiles (Profile 1, Profile 2, etc.)
         for item in browser_path.iterdir():
             if item.is_dir() and item.name.startswith("Profile "):
                 profile_dirs.append(item)
-        
+
         # Check for System Profile
         system_profile = browser_path / "System Profile"
         if system_profile.exists() and system_profile.is_dir():
             profile_dirs.append(system_profile)
-        
+
         if not profile_dirs:
             continue
-        
+
         profiles_found = True
         
         for profile_dir in sorted(profile_dirs):
             profile_name = get_profile_name(profile_dir, profile_names_cache)
             shortcuts = get_search_shortcuts(profile_dir)
-            
+
             print(f"\nProfile: {profile_name} (Directory: {profile_dir.name})")
-            
+
             if not shortcuts:
                 print("  No search shortcuts found")
                 continue
-            
+
             # Calculate dynamic table widths
             terminal_width = get_terminal_width()
             # 3 columns: Name, Shortcut, URL
@@ -480,18 +480,18 @@ def show_search_shortcuts():
             min_widths = [15, 8, 20]  # Minimum widths for Name, Shortcut, URL
             max_widths = [40, 20, None]  # Maximum widths (None = no limit for URL)
             widths = calculate_table_widths(terminal_width, 3, min_widths, max_widths)
-            
+
             # Print separator and header
             print_table_separator(widths)
             header_row = format_table_row(["Name", "Shortcut", "URL"], widths)
             print(header_row)
             print_table_separator(widths)
-            
+
             # Print shortcuts
             for shortcut in sorted(shortcuts, key=lambda x: x['keyword']):
                 row = format_table_row([shortcut['name'], shortcut['keyword'], shortcut['url']], widths)
                 print(row)
-    
+
     if not profiles_found:
         print("\nNo browser profiles found on this system.")
         print("Make sure Brave and/or Chrome browser is installed and has been run at least once.")
@@ -500,48 +500,48 @@ def show_search_shortcuts():
 def show_combined_search_shortcuts():
     """Show combined search engine shortcuts from all profiles, displaying all versions with conflicts."""
     os_name, browser_paths = detect_os()
-    
+
     print(f"Operating System: {os_name}")
     print("-" * 100)
-    
+
     if not browser_paths:
         print("Unsupported operating system")
         return
-    
+
     # Dictionary to store all versions of each shortcut
     all_shortcuts = {}  # keyword_lower -> list of shortcuts
     profiles_found = False
-    
+
     for browser_path in browser_paths:
         if not browser_path.exists():
             continue
-        
+
         # Get profile names from Local State
         profile_names_cache = get_profile_names_from_local_state(browser_path)
-        
+
         # Look for profile directories
         profile_dirs = []
-        
+
         # Check for Default profile
         default_profile = browser_path / "Default"
         if default_profile.exists() and default_profile.is_dir():
             profile_dirs.append(default_profile)
-        
+
         # Check for numbered profiles (Profile 1, Profile 2, etc.)
         for item in browser_path.iterdir():
             if item.is_dir() and item.name.startswith("Profile "):
                 profile_dirs.append(item)
-        
+
         # Check for System Profile
         system_profile = browser_path / "System Profile"
         if system_profile.exists() and system_profile.is_dir():
             profile_dirs.append(system_profile)
-        
+
         if not profile_dirs:
             continue
-        
+
         profiles_found = True
-        
+
         for profile_dir in profile_dirs:
             profile_name = get_profile_name(profile_dir, profile_names_cache)
             shortcuts = get_search_shortcuts_with_metadata(profile_dir, profile_name)
@@ -551,45 +551,45 @@ def show_combined_search_shortcuts():
                 # Skip browser-specific URLs that shouldn't be synced between browsers
                 if is_browser_specific_url(shortcut['url']):
                     continue
-                    
+
                 keyword_lower = shortcut['keyword'].lower()
 
                 # Add to the list of all shortcuts for this keyword
                 if keyword_lower not in all_shortcuts:
                     all_shortcuts[keyword_lower] = []
                 all_shortcuts[keyword_lower].append(shortcut)
-    
+
     if not profiles_found:
         print("\nNo browser profiles found on this system.")
         print("Make sure Brave and/or Chrome browser is installed and has been run at least once.")
         return
-    
+
     if not all_shortcuts:
         print("No search shortcuts found in any profile.")
         return
-    
+
     print("Combined Search Engine Shortcuts")
     terminal_width = get_terminal_width()
     print("=" * terminal_width)
     print(f"Found {len(all_shortcuts)} unique shortcuts across all profiles\n")
-    
+
     # Calculate dynamic table widths for 4 columns: Name, Shortcut, URL, Source Profile
     min_widths = [15, 8, 20, 12]  # Minimum widths
     max_widths = [35, 15, None, 25]  # Maximum widths (None = no limit for URL)
     widths = calculate_table_widths(terminal_width, 4, min_widths, max_widths)
-    
+
     # Print header
     header_row = format_table_row(["Name", "Shortcut", "URL", "Source Profile"], widths)
     print(header_row)
     print_table_separator(widths)
-    
+
     # Print shortcuts sorted by keyword (case-insensitive)
     for keyword_lower in sorted(all_shortcuts.keys()):
         shortcuts_for_keyword = all_shortcuts[keyword_lower]
-        
+
         # Sort by last_modified descending to get newest first
         shortcuts_for_keyword.sort(key=lambda x: x['last_modified'], reverse=True)
-        
+
         # Check if there are multiple different versions (different name or URL)
         unique_versions = []
         for shortcut in shortcuts_for_keyword:
@@ -600,7 +600,7 @@ def show_combined_search_shortcuts():
                 if (uv['name'], uv['url']) == version_key:
                     existing_version = uv
                     break
-            
+
             if existing_version:
                 # Add this profile to the existing version's profile list
                 existing_version['profiles'].append(shortcut['profile_name'])
@@ -616,10 +616,10 @@ def show_combined_search_shortcuts():
                     'last_modified': shortcut['last_modified'],
                     'profiles': [shortcut['profile_name']]
                 })
-        
+
         # Sort unique versions by last_modified descending
         unique_versions.sort(key=lambda x: x['last_modified'], reverse=True)
-        
+
         # Print each unique version
         for i, version in enumerate(unique_versions):
             # Format profile names
@@ -627,12 +627,12 @@ def show_combined_search_shortcuts():
             if i == 0 and len(unique_versions) > 1:
                 # This is the newest version and there are conflicts
                 profile_names += " (newest)"
-            
+
             # Create the row data
             row_data = [version['name'], version['keyword'], version['url'], profile_names]
             row = format_table_row(row_data, widths)
             print(row)
-    
+
 
 
 def check_browsers_not_running():
@@ -640,12 +640,12 @@ def check_browsers_not_running():
     try:
         # Use ps to check for running browser processes
         result = subprocess.run(['ps', 'aux'], capture_output=True, text=True, check=True)
-        
+
         # Look for browser processes with multiple possible names
         browser_processes = []
         browser_patterns = [
             'Brave Browser',
-            'brave-browser', 
+            'brave-browser',
             'brave',
             'BraveSoftware',
             'Brave-Browser',
@@ -654,24 +654,24 @@ def check_browsers_not_running():
             'chromium',
             'Google Chrome Helper'
         ]
-        
+
         # Get current script name to avoid detecting ourselves
         current_script = Path(__file__).name if __file__ else 'chromium-search-sync'
-        
+
         for line in result.stdout.split('\n'):
             # Skip helper processes and other non-main processes
             if 'Helper' in line or 'Renderer' in line or 'GPU' in line:
                 continue
-                
+
             # Skip this script itself
             if current_script in line:
                 continue
-                
+
             # Skip other scripts that might contain "brave" in their name
             # But only if they have script extensions AND contain "brave"
             if any(ext in line for ext in ['.py', '.sh', '.rb', '.js', '.pl']) and 'brave' in line.lower():
                 continue
-                
+
             # For the generic "brave" or "chrome" pattern, be more careful to avoid false positives
             # Check if any browser pattern matches (case-insensitive)
             line_lower = line.lower()
@@ -687,7 +687,7 @@ def check_browsers_not_running():
                             pass  # This looks like a legitimate browser process
                         else:
                             continue  # Skip this match as it's likely a false positive
-                    
+
                     # If we get here, we found a match
                     # Extract process name and PID for display
                     parts = line.split()
@@ -702,7 +702,7 @@ def check_browsers_not_running():
                         cmd = ' '.join(cmd_parts) if cmd_parts else 'Unknown Command'
                         browser_processes.append(f"PID {pid}: {cmd}")
                     break  # Found a match, no need to check other patterns
-        
+
         if browser_processes:
             print("ERROR: Browser is currently running!")
             print("\nThis script reads and writes browser configuration files, which is not safe")
@@ -715,7 +715,7 @@ def check_browsers_not_running():
             print("  2. Or use: pkill -f brave && pkill -f chrome")
             print("  3. Wait a few seconds, then run this script again")
             sys.exit(1)
-            
+
     except subprocess.CalledProcessError:
         # ps command failed, but continue - we'll handle database locks later
         pass
@@ -736,22 +736,22 @@ def get_existing_keywords_case_insensitive(profile_path):
     """Get existing keywords from a profile, returning a case-insensitive set."""
     web_data_file = profile_path / "Web Data"
     keywords = set()
-    
+
     if not web_data_file.exists():
         return keywords
-    
+
     try:
         conn = sqlite3.connect(str(web_data_file))
         cursor = conn.cursor()
-        
+
         cursor.execute("SELECT keyword FROM keywords WHERE keyword != '' AND keyword IS NOT NULL")
         for row in cursor.fetchall():
             keywords.add(row[0].lower())
-        
+
         conn.close()
     except (sqlite3.Error, OSError):
         pass
-    
+
     return keywords
 
 
@@ -759,20 +759,20 @@ def get_existing_search_engines_with_metadata(profile_path):
     """Get existing search engines with metadata from a profile for comparison and updating."""
     web_data_file = profile_path / "Web Data"
     search_engines = {}
-    
+
     if not web_data_file.exists():
         return search_engines
-    
+
     try:
         conn = sqlite3.connect(str(web_data_file))
         cursor = conn.cursor()
-        
+
         cursor.execute("""
             SELECT short_name, keyword, url, last_modified, favicon_url, usage_count, prepopulate_id, id
-            FROM keywords 
+            FROM keywords
             WHERE keyword != '' AND keyword IS NOT NULL
         """)
-        
+
         for row in cursor.fetchall():
             short_name, keyword, url, last_modified, favicon_url, usage_count, prepopulate_id, record_id = row
             if keyword:
@@ -786,30 +786,30 @@ def get_existing_search_engines_with_metadata(profile_path):
                     'usage_count': usage_count or 0,
                     'prepopulate_id': prepopulate_id or 0
                 }
-        
+
         conn.close()
     except (sqlite3.Error, OSError):
         pass
-    
+
     return search_engines
 
 
 def update_search_engine(profile_path, search_engine, existing_id):
     """Update an existing search engine in a profile's database."""
     web_data_file = profile_path / "Web Data"
-    
+
     if not web_data_file.exists():
         return False
-    
+
     conn = None
     try:
         conn = sqlite3.connect(str(web_data_file))
         cursor = conn.cursor()
-        
+
         # Generate current WebKit timestamp for last_modified
         # This is important for browser's sync mechanism to detect changes
         current_webkit_time = unix_to_webkit_timestamp(time.time())
-        
+
         # Update the search engine with current timestamp
         cursor.execute("""
             UPDATE keywords SET
@@ -822,10 +822,10 @@ def update_search_engine(profile_path, search_engine, existing_id):
             current_webkit_time,
             existing_id
         ))
-        
+
         conn.commit()
         return True
-        
+
     except (sqlite3.Error, OSError) as e:
         print(f"    Error updating search engine: {e}")
         return False
@@ -840,25 +840,25 @@ def update_search_engine(profile_path, search_engine, existing_id):
 def insert_search_engine(profile_path, search_engine):
     """Insert a search engine into a profile's database."""
     web_data_file = profile_path / "Web Data"
-    
+
     if not web_data_file.exists():
         return False
-    
+
     conn = None
     try:
         conn = sqlite3.connect(str(web_data_file))
         cursor = conn.cursor()
-        
+
         # Generate current WebKit timestamp
         current_webkit_time = unix_to_webkit_timestamp(time.time())
-        
+
         # Insert the search engine
         cursor.execute("""
             INSERT INTO keywords (
-                short_name, keyword, url, favicon_url, safe_for_autoreplace, 
-                prepopulate_id, date_created, last_modified, usage_count, 
+                short_name, keyword, url, favicon_url, safe_for_autoreplace,
+                prepopulate_id, date_created, last_modified, usage_count,
                 input_encodings, suggest_url, originating_url, sync_guid,
-                alternate_urls, image_url, search_url_post_params, 
+                alternate_urls, image_url, search_url_post_params,
                 suggest_url_post_params, image_url_post_params, new_tab_url,
                 last_visited, created_by_policy, created_from_play_api,
                 starter_pack_id, enforced_by_policy, featured_by_policy, is_active
@@ -891,10 +891,10 @@ def insert_search_engine(profile_path, search_engine):
             0,  # featured_by_policy
             0   # is_active
         ))
-        
+
         conn.commit()
         return True
-        
+
     except (sqlite3.Error, OSError) as e:
         print(f"    Error inserting search engine: {e}")
         return False
@@ -905,53 +905,53 @@ def insert_search_engine(profile_path, search_engine):
                 conn.close()
             except sqlite3.Error:
                 pass  # Ignore errors when closing connection
-        
+
 
 def delete_search_engine(profile_path, shortcut_keyword):
     """Delete a search engine from a profile's database by keyword."""
     web_data_file = profile_path / "Web Data"
-    
+
     if not web_data_file.exists():
         return False, "Web Data file not found"
-    
+
     conn = None
     try:
         conn = sqlite3.connect(str(web_data_file))
         cursor = conn.cursor()
-        
+
         # Use a transaction to ensure atomicity and prevent race conditions
         conn.execute('BEGIN IMMEDIATE')
-        
+
         # First, check if the keyword exists and get its details
         cursor.execute("""
-            SELECT short_name, keyword, prepopulate_id 
-            FROM keywords 
+            SELECT short_name, keyword, prepopulate_id
+            FROM keywords
             WHERE keyword = ? COLLATE NOCASE
         """, (shortcut_keyword,))
-        
+
         result = cursor.fetchone()
         if not result:
             conn.rollback()
             return False, "Shortcut not found"
-        
+
         short_name, keyword, prepopulate_id = result
-        
+
         # Check if it's a built-in search engine (generally shouldn't be deleted)
         if prepopulate_id and prepopulate_id > 0:
             conn.rollback()
             return False, f"Built-in search engine (prepopulate_id: {prepopulate_id}) - deletion not recommended"
-        
+
         # Delete the search engine atomically within the same transaction
         cursor.execute("DELETE FROM keywords WHERE keyword = ? COLLATE NOCASE", (shortcut_keyword,))
         deleted_count = cursor.rowcount
-        
+
         if deleted_count > 0:
             conn.commit()
             return True, f"Deleted '{short_name}' ({keyword})"
         else:
             conn.rollback()
             return False, "No rows deleted"
-        
+
     except (sqlite3.Error, OSError) as e:
         if conn:
             try:
@@ -971,49 +971,49 @@ def delete_search_engine(profile_path, shortcut_keyword):
 def sync_search_engines_to_all_profiles():
     """Sync the newest search engines to all profiles."""
     os_name, browser_paths = detect_os()
-    
+
     print(f"Operating System: {os_name}")
     terminal_width = get_terminal_width()
     print("=" * terminal_width)
     print("SYNCING SEARCH ENGINES TO ALL PROFILES")
     print("=" * terminal_width)
-    
+
     if not browser_paths:
         print("Unsupported operating system")
         return
-    
+
     # First, collect all search engines from all profiles (same as combined)
     combined_shortcuts = {}
     all_profiles = []
-    
+
     for browser_path in browser_paths:
         if not browser_path.exists():
             continue
-        
+
         # Get profile names from Local State
         profile_names_cache = get_profile_names_from_local_state(browser_path)
-        
+
         # Look for profile directories
         profile_dirs = []
-        
+
         # Check for Default profile
         default_profile = browser_path / "Default"
         if default_profile.exists() and default_profile.is_dir():
             profile_dirs.append(default_profile)
-        
+
         # Check for numbered profiles (Profile 1, Profile 2, etc.)
         for item in browser_path.iterdir():
             if item.is_dir() and item.name.startswith("Profile "):
                 profile_dirs.append(item)
-        
+
         # Check for System Profile
         system_profile = browser_path / "System Profile"
         if system_profile.exists() and system_profile.is_dir():
             profile_dirs.append(system_profile)
-        
+
         if not profile_dirs:
             continue
-        
+
         for profile_dir in profile_dirs:
             profile_name = get_profile_name(profile_dir, profile_names_cache)
             all_profiles.append((profile_dir, profile_name))
@@ -1025,59 +1025,59 @@ def sync_search_engines_to_all_profiles():
                 # Skip browser-specific URLs that shouldn't be synced between browsers
                 if is_browser_specific_url(shortcut['url']):
                     continue
-                    
+
                 keyword_lower = shortcut['keyword'].lower()
 
                 # If we haven't seen this keyword before, or if this version is newer
                 if (keyword_lower not in combined_shortcuts or
                     shortcut['last_modified'] > combined_shortcuts[keyword_lower]['last_modified']):
                     combined_shortcuts[keyword_lower] = shortcut
-    
+
     if not all_profiles:
         print("No browser profiles found on this system.")
         return
-    
+
     if not combined_shortcuts:
         print("No search shortcuts found in any profile.")
         return
-    
+
     print(f"Found {len(combined_shortcuts)} unique search engines across all profiles")
     print(f"Found {len(all_profiles)} profiles to sync")
     print()
-    
+
     # Now sync to each profile
     total_added = 0
     total_updated = 0
-    
+
     for profile_dir, profile_name in all_profiles:
         # Check if Web Data file exists before attempting to sync
         web_data_file = profile_dir / "Web Data"
         if not web_data_file.exists():
             print(f"Skipping profile: {profile_name} (no Web Data file)")
             continue
-            
+
         print(f"Syncing to profile: {profile_name}")
-        
+
         # Get existing search engines with metadata for comparison
         existing_search_engines = get_existing_search_engines_with_metadata(profile_dir)
-        
+
         added_count = 0
         updated_count = 0
-        
+
         for _, search_engine in combined_shortcuts.items():
             keyword_lower = search_engine['keyword'].lower()
-            
+
             if keyword_lower in existing_search_engines:
                 # Search engine exists - check if it needs updating
                 existing_engine = existing_search_engines[keyword_lower]
-                
+
                 # Compare to see if the newer version is different (ignore timestamps)
                 needs_update = (
                     search_engine['name'] != existing_engine['name'] or
                     search_engine['url'] != existing_engine['url'] or
                     search_engine['favicon_url'] != existing_engine['favicon_url']
                 )
-                
+
                 if needs_update:
                     success = update_search_engine(profile_dir, search_engine, existing_engine['id'])
                     if success:
@@ -1086,7 +1086,7 @@ def sync_search_engines_to_all_profiles():
                     else:
                         print(f"  ! Failed to update: {search_engine['name']} ({search_engine['keyword']})")
                 # If no update needed, don't print anything to avoid clutter
-                
+
             else:
                 # Search engine doesn't exist - add it
                 success = insert_search_engine(profile_dir, search_engine)
@@ -1095,7 +1095,7 @@ def sync_search_engines_to_all_profiles():
                     added_count += 1
                 else:
                     print(f"  ! Failed to add: {search_engine['name']} ({search_engine['keyword']})")
-        
+
         if added_count == 0 and updated_count == 0:
             print("  - No changes needed (all search engines are up to date)")
         else:
@@ -1105,18 +1105,18 @@ def sync_search_engines_to_all_profiles():
             if updated_count > 0:
                 changes.append(f"updated {updated_count}")
             print(f"  ✓ {' and '.join(changes)} search engines")
-        
+
         total_added += added_count
         total_updated += updated_count
         print()
-    
+
     print("=" * terminal_width)
     summary_parts = []
     if total_added > 0:
         summary_parts.append(f"Added {total_added} search engines")
     if total_updated > 0:
         summary_parts.append(f"Updated {total_updated} search engines")
-    
+
     if summary_parts:
         print(f"SYNC COMPLETE: {' and '.join(summary_parts)} total across all profiles")
     else:
@@ -1127,74 +1127,74 @@ def sync_search_engines_to_all_profiles():
 def delete_search_engine_from_all_profiles(shortcut_keyword):
     """Delete a search engine with the specified shortcut from all profiles."""
     os_name, browser_paths = detect_os()
-    
+
     print(f"Operating System: {os_name}")
     terminal_width = get_terminal_width()
     print("=" * terminal_width)
     print(f"DELETING SEARCH ENGINE SHORTCUT: '{shortcut_keyword}'")
     print("=" * terminal_width)
-    
+
     if not browser_paths:
         print("Unsupported operating system")
         return
-    
+
     # Collect all profiles
     all_profiles = []
-    
+
     for browser_path in browser_paths:
         if not browser_path.exists():
             continue
-        
+
         # Get profile names from Local State
         profile_names_cache = get_profile_names_from_local_state(browser_path)
-        
+
         # Look for profile directories
         profile_dirs = []
-        
+
         # Check for Default profile
         default_profile = browser_path / "Default"
         if default_profile.exists() and default_profile.is_dir():
             profile_dirs.append(default_profile)
-        
+
         # Check for numbered profiles (Profile 1, Profile 2, etc.)
         for item in browser_path.iterdir():
             if item.is_dir() and item.name.startswith("Profile "):
                 profile_dirs.append(item)
-        
+
         # Check for System Profile
         system_profile = browser_path / "System Profile"
         if system_profile.exists() and system_profile.is_dir():
             profile_dirs.append(system_profile)
-        
+
         if not profile_dirs:
             continue
-        
+
         for profile_dir in profile_dirs:
             profile_name = get_profile_name(profile_dir, profile_names_cache)
             all_profiles.append((profile_dir, profile_name))
-    
+
     if not all_profiles:
         print("No browser profiles found on this system.")
         return
-    
+
     print(f"Found {len(all_profiles)} profiles to check")
     print()
-    
+
     # Delete from each profile
     total_deleted = 0
     profiles_with_shortcut = 0
-    
+
     for profile_dir, profile_name in all_profiles:
         # Check if Web Data file exists before attempting to delete
         web_data_file = profile_dir / "Web Data"
         if not web_data_file.exists():
             print(f"Skipping profile: {profile_name} (no Web Data file)")
             continue
-            
+
         print(f"Checking profile: {profile_name}")
-        
+
         success, message = delete_search_engine(profile_dir, shortcut_keyword)
-        
+
         if success:
             print(f"  ✓ {message}")
             total_deleted += 1
@@ -1205,7 +1205,7 @@ def delete_search_engine_from_all_profiles(shortcut_keyword):
             else:
                 print(f"  ! {message}")
                 profiles_with_shortcut += 1  # It was found but couldn't be deleted
-    
+
     print()
     print("=" * terminal_width)
     if total_deleted > 0:
@@ -1223,11 +1223,11 @@ def run_smoke_test():
     print("CHROMIUM BROWSER SEARCH SYNC - SMOKE TEST")
     terminal_width = get_terminal_width()
     print("=" * terminal_width)
-    
+
     # Track overall test results
     test_results = []
     warnings = []
-    
+
     # Test 1: OS Detection
     print("1. Testing OS Detection...")
     os_name, browser_paths = detect_os()
@@ -1238,12 +1238,12 @@ def run_smoke_test():
     else:
         print(f"   ✗ OS detection failed: {os_name}")
         test_results.append(False)
-    
+
     # Test 2: Browser Directory Structure
     print("\n2. Testing Browser Directory Structure...")
     browsers_found = False
     profiles_found = False
-    
+
     for browser_path in browser_paths:
         # Determine browser type for user feedback
         browser_name = "Unknown Browser"
@@ -1251,14 +1251,14 @@ def run_smoke_test():
             browser_name = "Brave Browser"
         elif "Google" in str(browser_path) and "Chrome" in str(browser_path):
             browser_name = "Google Chrome"
-        
+
         print(f"\n   Testing {browser_name}:")
         print(f"   Path: {browser_path}")
-        
+
         if browser_path.exists():
             print(f"   ✓ Browser directory found")
             browsers_found = True
-            
+
             # Check for Local State file
             local_state = browser_path / "Local State"
             if local_state.exists():
@@ -1266,29 +1266,29 @@ def run_smoke_test():
             else:
                 print(f"   ! Local State file missing")
                 warnings.append(f"Local State file missing for {browser_name} - profile name detection may be limited")
-            
+
             # Look for profile directories
             profile_dirs = []
-            
+
             # Check for Default profile
             default_profile = browser_path / "Default"
             if default_profile.exists() and default_profile.is_dir():
                 profile_dirs.append(default_profile)
-            
+
             # Check for numbered profiles
             for item in browser_path.iterdir():
                 if item.is_dir() and item.name.startswith("Profile "):
                     profile_dirs.append(item)
-            
+
             # Check for System Profile
             system_profile = browser_path / "System Profile"
             if system_profile.exists() and system_profile.is_dir():
                 profile_dirs.append(system_profile)
-            
+
             if profile_dirs:
                 print(f"   ✓ Found {len(profile_dirs)} profile(s)")
                 profiles_found = True
-                
+
                 # Check each profile for Web Data
                 for profile_dir in profile_dirs:
                     web_data = profile_dir / "Web Data"
@@ -1301,15 +1301,15 @@ def run_smoke_test():
                 print(f"   ! No profiles found")
         else:
             print(f"   - Browser directory not found (browser not installed)")
-    
+
     test_results.append(browsers_found)
     test_results.append(profiles_found)
-    
+
     # Test 3: Command-line Tools
     print("\n3. Testing Required Command-line Tools...")
     import subprocess
     import shutil
-    
+
     # Test ps command (for process checking)
     ps_available = shutil.which('ps') is not None
     if ps_available:
@@ -1327,89 +1327,89 @@ def run_smoke_test():
     else:
         print("   ! 'ps' command not found")
         warnings.append("ps command not available - process detection disabled")
-    
+
     test_results.append(ps_available)
-    
+
     # Test 4: SQLite Database Schema
     print("\n4. Testing SQLite Database Schema...")
     schema_valid = False
-    
+
     for browser_path in browser_paths:
         if not browser_path.exists():
             continue
-            
+
         # Determine browser type for user feedback
         browser_name = "Unknown Browser"
         if "BraveSoftware" in str(browser_path):
             browser_name = "Brave Browser"
         elif "Google" in str(browser_path) and "Chrome" in str(browser_path):
             browser_name = "Google Chrome"
-        
+
         print(f"\n   Testing {browser_name} database schema:")
-        
+
         # Get profile names from Local State
         profile_names_cache = get_profile_names_from_local_state(browser_path)
-        
+
         # Look for profile directories with Web Data
         profile_dirs = []
-        
+
         # Check for Default profile
         default_profile = browser_path / "Default"
         if default_profile.exists() and default_profile.is_dir():
             profile_dirs.append(default_profile)
-        
+
         # Check for numbered profiles
         for item in browser_path.iterdir():
             if item.is_dir() and item.name.startswith("Profile "):
                 profile_dirs.append(item)
-        
+
         # Check for System Profile
         system_profile = browser_path / "System Profile"
         if system_profile.exists() and system_profile.is_dir():
             profile_dirs.append(system_profile)
-        
+
         browser_schema_valid = False
         profiles_tested = 0
-        
+
         for profile_dir in profile_dirs:
             web_data_file = profile_dir / "Web Data"
             if not web_data_file.exists():
                 continue
-                
+
             profile_name = get_profile_name(profile_dir, profile_names_cache)
             print(f"   Testing schema in profile: {profile_name}")
             profiles_tested += 1
-            
+
             try:
                 conn = sqlite3.connect(str(web_data_file))
                 cursor = conn.cursor()
-                
+
                 # Check if keywords table exists
                 cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='keywords'")
                 if cursor.fetchone():
                     print("   ✓ 'keywords' table found")
-                    
+
                     # Check required columns
                     cursor.execute("PRAGMA table_info(keywords)")
                     columns = [row[1] for row in cursor.fetchall()]
-                    
+
                     required_columns = ['short_name', 'keyword', 'url', 'last_modified', 'favicon_url', 'usage_count', 'prepopulate_id']
                     missing_columns = [col for col in required_columns if col not in columns]
-                    
+
                     if not missing_columns:
                         print("   ✓ All required columns present")
                         browser_schema_valid = True
                         schema_valid = True
-                        
+
                         # Test a simple query
                         cursor.execute("SELECT COUNT(*) FROM keywords WHERE keyword != '' AND keyword IS NOT NULL")
                         count = cursor.fetchone()[0]
                         print(f"   ✓ Found {count} search engines with keywords")
-                        
+
                         # Test schema by trying to read a few entries
                         cursor.execute("""
                             SELECT short_name, keyword, url, last_modified, favicon_url, usage_count, prepopulate_id
-                            FROM keywords 
+                            FROM keywords
                             WHERE keyword != '' AND keyword IS NOT NULL
                             LIMIT 3
                         """)
@@ -1425,41 +1425,41 @@ def run_smoke_test():
                 else:
                     print("   ✗ 'keywords' table not found")
                     warnings.append(f"Keywords table not found in {browser_name}")
-                
+
                 conn.close()
                 break  # Only need to test one profile's schema per browser
-                
+
             except sqlite3.Error as e:
                 print(f"   ✗ Database error: {e}")
                 warnings.append(f"Database error in {browser_name}: {e}")
                 break
-        
+
         if profiles_tested == 0:
             print(f"   - No profiles with Web Data found for {browser_name}")
         elif browser_schema_valid:
             print(f"   ✓ {browser_name} database schema test passed")
         else:
             print(f"   ✗ {browser_name} database schema test failed")
-    
+
     test_results.append(schema_valid)
-    
+
     # Test 5: Write Permission Test
     print("\n5. Testing Write Permissions...")
     write_test_passed = True
-    
+
     for browser_path in browser_paths:
         if not browser_path.exists():
             continue
-            
+
         # Determine browser type for user feedback
         browser_name = "Unknown Browser"
         if "BraveSoftware" in str(browser_path):
             browser_name = "Brave Browser"
         elif "Google" in str(browser_path) and "Chrome" in str(browser_path):
             browser_name = "Google Chrome"
-        
+
         print(f"\n   Testing {browser_name} write permissions:")
-        
+
         # Test write permission on browser directory (read-only check)
         try:
             if os.access(str(browser_path), os.W_OK):
@@ -1471,25 +1471,25 @@ def run_smoke_test():
             print(f"   ✗ Cannot check write permission for browser directory")
             print(f"      Error: {e}")
             write_test_passed = False
-        
+
         # Test write permission on profile Web Data files
         profile_dirs = []
-        
+
         # Check for Default profile
         default_profile = browser_path / "Default"
         if default_profile.exists() and default_profile.is_dir():
             profile_dirs.append(default_profile)
-        
+
         # Check for numbered profiles
         for item in browser_path.iterdir():
             if item.is_dir() and item.name.startswith("Profile "):
                 profile_dirs.append(item)
-        
+
         # Check for System Profile
         system_profile = browser_path / "System Profile"
         if system_profile.exists() and system_profile.is_dir():
             profile_dirs.append(system_profile)
-        
+
         profiles_tested = 0
         for profile_dir in profile_dirs:
             web_data_file = profile_dir / "Web Data"
@@ -1506,19 +1506,19 @@ def run_smoke_test():
                     print(f"   ✗ Cannot check write permission for: {profile_dir.name}/Web Data")
                     print(f"      Error: {e}")
                     write_test_passed = False
-        
+
         if profiles_tested == 0:
             print(f"   - No Web Data files found for {browser_name}")
         else:
             print(f"   ✓ Tested {profiles_tested} Web Data files for {browser_name}")
-    
+
     test_results.append(write_test_passed)
-    
+
     # Final Assessment
     print("\n" + "=" * terminal_width)
     print("SMOKE TEST RESULTS")
     print("=" * terminal_width)
-    
+
     # Show which browsers were tested
     print("BROWSERS TESTED:")
     browsers_tested = []
@@ -1530,17 +1530,17 @@ def run_smoke_test():
                 browsers_tested.append("Google Chrome")
             else:
                 browsers_tested.append(f"Unknown Browser ({browser_path.name})")
-    
+
     if browsers_tested:
         for browser in browsers_tested:
             print(f"  ✓ {browser}")
     else:
         print("  ! No browsers found or installed")
-    
+
     print()
-    
+
     all_tests_passed = all(test_results)
-    
+
     if all_tests_passed:
         print("✓ ALL TESTS PASSED")
         print("\nASSESSMENT: NO PROBLEMS FOUND")
@@ -1550,35 +1550,35 @@ def run_smoke_test():
         print("\nASSESSMENT: PROBLEMS DETECTED")
         print("The tool may not work correctly or could cause issues.")
         print("Please resolve the failed tests before using this tool.")
-    
+
     if warnings:
         print(f"\n⚠ WARNINGS ({len(warnings)}):")
         for i, warning in enumerate(warnings, 1):
             print(f"  {i}. {warning}")
-    
+
     print("\nTEST SUMMARY:")
     test_names = [
         "OS Detection",
-        "Browser Directory Structure", 
+        "Browser Directory Structure",
         "Profile Detection",
         "Command-line Tools",
         "SQLite Schema",
         "Write Permissions"
     ]
-    
+
     for i, (test_name, passed) in enumerate(zip(test_names, test_results)):
         status = "✓ PASS" if passed else "✗ FAIL"
         print(f"  {test_name}: {status}")
-    
+
     print("=" * terminal_width)
-    
+
     return all_tests_passed
 
 
 def get_backup_directory_message():
     """Get the backup directory message for the current OS."""
     os_name, browser_paths = detect_os()
-    
+
     if browser_paths:
         backup_path = str(browser_paths[0]).replace(str(Path.home()), "~")
         return f"On this system, back up your browser configuration directories"
@@ -1601,13 +1601,13 @@ def get_terminal_width():
 
 def calculate_table_widths(terminal_width, columns, min_widths=None, max_widths=None):
     """Calculate optimal column widths for a table based on terminal width.
-    
+
     Args:
         terminal_width: Available terminal width
         columns: Number of columns
         min_widths: List of minimum widths for each column (optional)
         max_widths: List of maximum widths for each column (optional)
-        
+
     Returns:
         List of column widths
     """
@@ -1622,7 +1622,7 @@ def calculate_table_widths(terminal_width, columns, min_widths=None, max_widths=
     # Start with minimum widths
     widths = min_widths.copy()
     remaining_width = available_width - sum(widths)
-    
+
     # Distribute remaining width proportionally
     if remaining_width > 0:
         # Find columns that can expand
@@ -1630,12 +1630,12 @@ def calculate_table_widths(terminal_width, columns, min_widths=None, max_widths=
         for i, max_width in enumerate(max_widths):
             if max_width is None or widths[i] < max_width:
                 expandable_columns.append(i)
-        
+
         if expandable_columns:
             # Distribute remaining width evenly among expandable columns
             extra_per_column = remaining_width // len(expandable_columns)
             remainder = remaining_width % len(expandable_columns)
-            
+
             for i, col_idx in enumerate(expandable_columns):
                 extra = extra_per_column + (1 if i < remainder else 0)
                 if max_widths[col_idx] is not None:
@@ -1658,25 +1658,25 @@ def format_table_row(values, widths):
                 formatted_values.append(str(value)[:width])
         else:
             formatted_values.append(str(value))
-    
+
     # Left-align all columns
     return " ".join(f"{val:<{width}}" for val, width in zip(formatted_values, widths))
 
 
 def print_table_separator(widths, char="-"):
     """Print a table separator line using the given character."""
-    total_width = sum(widths) + len(widths) - 1
+    total_width = sum(widths) + len(widths)
     print(char * total_width)
 
 
 if __name__ == "__main__":
     try:
         args = parse_arguments()
-        
+
         # Skip browser check for smoke test as it's a validation tool
         if not args.smoke_test:
             check_browsers_not_running()
-        
+
         if args.profiles:
             list_browser_profiles()
         elif args.search_shortcuts:
@@ -1745,7 +1745,7 @@ Use at your own risk.
                 help='Run system validation checks to ensure the tool can operate safely'
             )
             parser.print_help()
-            
+
     except KeyboardInterrupt:
         print("\nOperation cancelled by user.")
         sys.exit(1)

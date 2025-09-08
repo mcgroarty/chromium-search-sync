@@ -24,6 +24,7 @@ Use at your own risk.
 
 FUNCTIONALITY:
 - Detects OS (macOS, Linux, Windows, Windows/Cygwin) and locates Brave and Chrome data directories
+    - for macOS, further detects: Brave-Browser-Beta, Brave-Browser-Dev, Chrome Beta, Chrome Canary, Arc
 - Reads profile names from Local State file (primary source)
 - Falls back to individual profile Preferences files if needed
 - Handles multiple profile types: Default, Profile 1-N, System Profile
@@ -31,12 +32,12 @@ FUNCTIONALITY:
 - Lists search engine shortcuts for each profile or combined across all profiles
 - Syncs newest search engines to all profiles with case-insensitive keyword matching
 - Deletes specified search engine shortcuts from all profiles (with built-in protection)
-- Filters out browser-specific URLs (brave://, chrome://) to prevent cross-browser conflicts
+- Filters out browser-specific URLs (brave://, chrome://, etc.) to prevent cross-browser conflicts
 
 REQUIREMENTS:
 - Python 3.6+ (uses pathlib and f-strings)
 - Standard library only (no external dependencies)
-- Brave and/or Chrome browser must be installed and run at least once
+- Brave, Chrome and/or Arc browser must be installed and run at least once
 
 SEARCH ENGINE DATABASE SCHEMA:
 The search engines are stored in the 'keywords' table within each profile's 'Web Data' SQLite database.
@@ -121,16 +122,18 @@ def detect_os():
     
     if system == "darwin":  # macOS
         os_name = "macOS"
-        # Check for Brave
-        brave_path = Path.home() / "Library" / "Application Support" / "BraveSoftware" / "Brave-Browser"
-        if brave_path.exists():
-            browser_paths.append(brave_path)
-        
-        # Check for Chrome
-        chrome_path = Path.home() / "Library" / "Application Support" / "Google" / "Chrome"
-        if chrome_path.exists():
-            browser_paths.append(chrome_path)
-            
+        for path in [
+            Path.home() / "Library" / "Application Support" / "BraveSoftware" / "Brave-Browser",
+            Path.home() / "Library" / "Application Support" / "BraveSoftware" / "Brave-Browser-Beta",
+            Path.home() / "Library" / "Application Support" / "BraveSoftware" / "Brave-Browser-Dev",
+            Path.home() / "Library" / "Application Support" / "Google" / "Chrome",
+            Path.home() / "Library" / "Application Support" / "Google" / "Chrome Beta",
+            Path.home() / "Library" / "Application Support" / "Google" / "Chrome Canary",
+            Path.home() / "Library" / "Application Support" / "Arc" / "User Data",
+        ]:
+            if path.exists():
+                browser_paths.append(path)
+
     elif system == "linux":
         os_name = "Linux"
         # Check for Brave
@@ -168,12 +171,11 @@ def detect_os():
 
 
 def is_browser_specific_url(url):
-    """Check if a URL is browser-specific (brave:// or chrome://)."""
+    """Check if a URL is browser-specific (brave://, chrome://, etc.)."""
     if not url:
         return False
-    
-    url_lower = url.lower()
-    return url_lower.startswith('brave://') or url_lower.startswith('chrome://')
+    scheme = url.split("://")[0].lower()
+    return scheme in ["brave", "chrome", "arc", "edge", "vivaldi"]
 
 
 def get_profile_names_from_local_state(browser_path):
@@ -436,7 +438,8 @@ def show_search_shortcuts():
     for browser_path in browser_paths:
         if not browser_path.exists():
             continue
-        
+        browser_name = get_browser_name_from_path(browser_path)
+
         # Get profile names from Local State
         profile_names_cache = get_profile_names_from_local_state(browser_path)
         
@@ -466,9 +469,9 @@ def show_search_shortcuts():
         for profile_dir in sorted(profile_dirs):
             profile_name = get_profile_name(profile_dir, profile_names_cache)
             shortcuts = get_search_shortcuts(profile_dir)
-            
-            print(f"\nProfile: {profile_name} (Directory: {profile_dir.name})")
-            
+
+            print(f"\n{browser_name} Profile: {profile_name} (Directory: {profile_dir.name})")
+
             if not shortcuts:
                 print("  No search shortcuts found")
                 continue
@@ -652,7 +655,8 @@ def check_browsers_not_running():
             'Google Chrome',
             'chrome',
             'chromium',
-            'Google Chrome Helper'
+            'Google Chrome Helper',
+            '/Arc.app'
         ]
         
         # Get current script name to avoid detecting ourselves
@@ -939,8 +943,8 @@ def delete_search_engine(profile_path, shortcut_keyword):
         # Check if it's a built-in search engine (generally shouldn't be deleted)
         if prepopulate_id and prepopulate_id > 0:
             conn.rollback()
-            return False, f"Built-in search engine (prepopulate_id: {prepopulate_id}) - deletion not recommended"
-        
+            return False, f"Built-in search engine '{shortcut_keyword}' (prepopulate_id: {prepopulate_id}) - deletion not recommended"
+
         # Delete the search engine atomically within the same transaction
         cursor.execute("DELETE FROM keywords WHERE keyword = ? COLLATE NOCASE", (shortcut_keyword,))
         deleted_count = cursor.rowcount
@@ -1050,14 +1054,16 @@ def sync_search_engines_to_all_profiles():
     total_updated = 0
     
     for profile_dir, profile_name in all_profiles:
+        browser_name = get_browser_name_from_profile_dir(profile_dir)
+
         # Check if Web Data file exists before attempting to sync
         web_data_file = profile_dir / "Web Data"
         if not web_data_file.exists():
-            print(f"Skipping profile: {profile_name} (no Web Data file)")
+            print(f"Skipping {browser_name} profile: {profile_name} (no Web Data file)")
             continue
-            
-        print(f"Syncing to profile: {profile_name}")
-        
+
+        print(f"Syncing to {browser_name} profile: {profile_name} (Directory: {profile_dir})")
+
         # Get existing search engines with metadata for comparison
         existing_search_engines = get_existing_search_engines_with_metadata(profile_dir)
         
@@ -1185,14 +1191,16 @@ def delete_search_engine_from_all_profiles(shortcut_keyword):
     profiles_with_shortcut = 0
     
     for profile_dir, profile_name in all_profiles:
+        browser_name = get_browser_name_from_profile_dir(profile_dir)
+
         # Check if Web Data file exists before attempting to delete
         web_data_file = profile_dir / "Web Data"
         if not web_data_file.exists():
-            print(f"Skipping profile: {profile_name} (no Web Data file)")
+            print(f"Skipping {browser_name} profile: {profile_name} (no Web Data file)")
             continue
-            
-        print(f"Checking profile: {profile_name}")
-        
+
+        print(f"Checking {browser_name} profile: {profile_name}")
+
         success, message = delete_search_engine(profile_dir, shortcut_keyword)
         
         if success:
@@ -1216,6 +1224,21 @@ def delete_search_engine_from_all_profiles(shortcut_keyword):
         else:
             print(f"SHORTCUT NOT FOUND: '{shortcut_keyword}' was not found in any profile")
     print("=" * terminal_width)
+
+
+def get_browser_name_from_path(browser_path):
+    """Get the browser name from the given path."""
+    # Get the last element in the Path
+    browser_name = browser_path.name
+    # Both Arc on macOS and Chrome on Linux have an extra directory level
+    if browser_name == "User Data": 
+        browser_name = browser_path.parent.name
+    return browser_name
+
+
+def get_browser_name_from_profile_dir(profile_dir):
+    """Get the browser name from the given profile dir."""
+    return get_browser_name_from_path(profile_dir.parent)
 
 
 def run_smoke_test():
@@ -1246,12 +1269,7 @@ def run_smoke_test():
     
     for browser_path in browser_paths:
         # Determine browser type for user feedback
-        browser_name = "Unknown Browser"
-        if "BraveSoftware" in str(browser_path):
-            browser_name = "Brave Browser"
-        elif "Google" in str(browser_path) and "Chrome" in str(browser_path):
-            browser_name = "Google Chrome"
-        
+        browser_name = get_browser_name_from_path(browser_path)
         print(f"\n   Testing {browser_name}:")
         print(f"   Path: {browser_path}")
         
@@ -1337,14 +1355,8 @@ def run_smoke_test():
     for browser_path in browser_paths:
         if not browser_path.exists():
             continue
-            
-        # Determine browser type for user feedback
-        browser_name = "Unknown Browser"
-        if "BraveSoftware" in str(browser_path):
-            browser_name = "Brave Browser"
-        elif "Google" in str(browser_path) and "Chrome" in str(browser_path):
-            browser_name = "Google Chrome"
-        
+
+        browser_name = get_browser_name_from_path(browser_path)
         print(f"\n   Testing {browser_name} database schema:")
         
         # Get profile names from Local State
@@ -1450,14 +1462,8 @@ def run_smoke_test():
     for browser_path in browser_paths:
         if not browser_path.exists():
             continue
-            
-        # Determine browser type for user feedback
-        browser_name = "Unknown Browser"
-        if "BraveSoftware" in str(browser_path):
-            browser_name = "Brave Browser"
-        elif "Google" in str(browser_path) and "Chrome" in str(browser_path):
-            browser_name = "Google Chrome"
-        
+
+        browser_name = get_browser_name_from_path(browser_path)
         print(f"\n   Testing {browser_name} write permissions:")
         
         # Test write permission on browser directory (read-only check)
@@ -1523,14 +1529,8 @@ def run_smoke_test():
     print("BROWSERS TESTED:")
     browsers_tested = []
     for browser_path in browser_paths:
-        if browser_path.exists():
-            if "BraveSoftware" in str(browser_path):
-                browsers_tested.append("Brave Browser")
-            elif "Google" in str(browser_path) and "Chrome" in str(browser_path):
-                browsers_tested.append("Google Chrome")
-            else:
-                browsers_tested.append(f"Unknown Browser ({browser_path.name})")
-    
+        browsers_tested.append(get_browser_name_from_path(browser_path))
+
     if browsers_tested:
         for browser in browsers_tested:
             print(f"  ✓ {browser}")

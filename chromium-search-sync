@@ -1063,7 +1063,8 @@ def sync_search_engines_to_all_profiles():
         
         added_count = 0
         updated_count = 0
-        
+        failed_count = 0
+
         for _, search_engine in combined_shortcuts.items():
             keyword_lower = search_engine['keyword'].lower()
             
@@ -1085,6 +1086,7 @@ def sync_search_engines_to_all_profiles():
                         updated_count += 1
                     else:
                         print(f"  ! Failed to update: {search_engine['name']} ({search_engine['keyword']})")
+                        failed_count +=1
                 # If no update needed, don't print anything to avoid clutter
                 
             else:
@@ -1095,8 +1097,9 @@ def sync_search_engines_to_all_profiles():
                     added_count += 1
                 else:
                     print(f"  ! Failed to add: {search_engine['name']} ({search_engine['keyword']})")
-        
-        if added_count == 0 and updated_count == 0:
+                    failed_count +=1
+
+        if added_count == 0 and updated_count == 0 and failed_count == 0:
             print("  - No changes needed (all search engines are up to date)")
         else:
             changes = []
@@ -1104,6 +1107,8 @@ def sync_search_engines_to_all_profiles():
                 changes.append(f"added {added_count}")
             if updated_count > 0:
                 changes.append(f"updated {updated_count}")
+            if failed_count > 0:
+                changes.append(f"failed {failed_count}")
             print(f"  ✓ {' and '.join(changes)} search engines")
         
         total_added += added_count

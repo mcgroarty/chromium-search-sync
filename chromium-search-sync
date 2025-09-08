@@ -69,9 +69,9 @@ Additional fields:
 - last_visited (INTEGER): WebKit timestamp of last use
 - created_by_policy (INTEGER): 1 if created by enterprise policy
 - created_from_play_api (INTEGER): 1 if created from Play API
-- starter_pack_id (INTEGER): ID for starter pack search engines
-- enforced_by_policy (INTEGER): 1 if enforced by enterprise policy
-- featured_by_policy (INTEGER): 1 if featured by enterprise policy
+- starter_pack_id (INTEGER): ID for starter pack search engines. Not in all profiles.
+- enforced_by_policy (INTEGER): 1 if enforced by enterprise policy. Not in all profiles.
+- featured_by_policy (INTEGER): 1 if featured by enterprise policy. Not in all profiles.
 - url_hash (BLOB): Hash of the search URL for deduplication
 
 NOTES FOR EDITING:
@@ -861,8 +861,8 @@ def insert_search_engine(profile_path, search_engine):
                 alternate_urls, image_url, search_url_post_params, 
                 suggest_url_post_params, image_url_post_params, new_tab_url,
                 last_visited, created_by_policy, created_from_play_api,
-                starter_pack_id, enforced_by_policy, featured_by_policy, is_active
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                is_active
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             search_engine['name'],
             search_engine['keyword'],
@@ -886,9 +886,6 @@ def insert_search_engine(profile_path, search_engine):
             0,  # last_visited
             0,  # created_by_policy
             0,  # created_from_play_api
-            0,  # starter_pack_id
-            0,  # enforced_by_policy
-            0,  # featured_by_policy
             0   # is_active
         ))
         
